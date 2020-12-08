@@ -37,6 +37,8 @@ class PS_Parser:
             text = self.get_page(start_page)
             soup = bs4.BeautifulSoup(text, 'lxml')
             pagination_block = soup.find('div',{'class':'ems-sdk-grid-paginator__page-buttons'})
+            if not pagination_block:
+                raise Exception('pagination error')
             right_pagination_index = pagination_block.find_all('div',{'class':'ems-sdk-grid-paginator__page-button'})
             pagination_limit = right_pagination_index[4].get_text()
             print('Counted pages', pagination_limit,'...')
@@ -57,9 +59,18 @@ class PS_Parser:
         if sale is not None:
             title = item.find('noscript',{'class':'psw-layer'}).find('img').get('alt')
             price_block = item.find('div',{'class':'price__container'})
+            if not price_block:
+                print(title, 'something wrong in price block')
+                return None
             sale_price_block = price_block.find('span',{'class':'price'})
+            if not sale_price_block:
+                print(title, 'something wrong in sale price block')
+                return None
             sale_price = int(sale_price_block.get_text().strip('RUB').replace('.',''))
             regular_price_block = price_block.find('strike',{'class':'price price--strikethrough psw-m-l-xs'})
+            if not regular_price_block:
+                print(title, 'something wrong in regular price block')
+                return None
             regular_price = int(regular_price_block.get_text().strip('RUB').replace('.',''))
             url_id = item.find('a').get('href')
             url = 'https://store.playstation.com' + url_id
@@ -76,7 +87,6 @@ class PS_Parser:
 
     def get_games(self, page: int = None):
         #собираем все контейнеры с играми из одной странички
-        '''Смена разметки'''
         text = self.get_page(page=page)
         soup = bs4.BeautifulSoup(text,'lxml')
         container = soup.find_all('div',{'class':'ems-sdk-product-tile'})
@@ -99,16 +109,21 @@ class PS_Parser:
 
     def sale_alert(self):
         #проходим по собранным в массив играм в поиске нужной нам информации касательно сроков распродажи
-        games_data = self.parse_all()
-        for game in games_data:
-            sales_info = self.get_offer_date(game[4])
-            sales = sales_info[0]
-            text = game[0] + '\n' + str(game[1]) + ' руб. ' + '(прежняя цена ' + str(game[2]) + ' руб.)' + '\n' + game[3] + '\n' + game[4] + '\n' + sales
-            print(game[5])
-            print(text)
-            #tb = telebot.TeleBot('Your bot token')
-            #tb.send_photo('@Channel_ID', game[5], caption = text)
-            print('send')
+        try:
+            games_data = self.parse_all()
+            for game in games_data:
+                sales_info = self.get_offer_date(game[4])
+                sales = sales_info[0]
+                text = game[0] + '\n' + str(game[1]) + ' руб. ' + '(прежняя цена ' + str(game[2]) + ' руб.)' + '\n' + game[3] + '\n' + game[4] + '\n' + sales
+                print(game[5])
+                print(text)
+                tb = telebot.TeleBot('Your bot token')
+                tb.send_photo('@Channel_ID', game[5], caption = text)
+                print('send')
+        except Exception as e:
+            if e.args[0] == ('pagination error'):
+                print('something wrong in pagination block')
+                return
         print('Done')
 
 def main():
