@@ -3,6 +3,7 @@ import bs4
 import requests
 from collections import namedtuple
 import telebot
+import time
 
 #создаем кортеж для хранения всей необходимой информации по каждой игре
 InnerBlock = namedtuple('Block', 'title, sale_price, regular_price, sale, url, image')
@@ -60,16 +61,16 @@ class PS_Parser:
             title = item.find('noscript',{'class':'psw-layer'}).find('img').get('alt')
             price_block = item.find('div',{'class':'price__container'})
             if not price_block:
-                print(title, 'something wrong in price block')
+                print(title, '\033[91msomething wrong in price block\033[0m')
                 return None
             sale_price_block = price_block.find('span',{'class':'price'})
             if not sale_price_block:
-                print(title, 'something wrong in sale price block')
+                print(title, '\033[91msomething wrong in sale price block\033[0m')
                 return None
             sale_price = int(sale_price_block.get_text().strip('RUB').replace('.',''))
             regular_price_block = price_block.find('strike',{'class':'price price--strikethrough psw-m-l-xs'})
             if not regular_price_block:
-                print(title, 'something wrong in regular price block')
+                print(title, '\033[91msomething wrong in regular price block\033[0m')
                 return None
             regular_price = int(regular_price_block.get_text().strip('RUB').replace('.',''))
             url_id = item.find('a').get('href')
@@ -115,16 +116,23 @@ class PS_Parser:
                 sales_info = self.get_offer_date(game[4])
                 sales = sales_info[0]
                 text = game[0] + '\n' + str(game[1]) + ' руб. ' + '(прежняя цена ' + str(game[2]) + ' руб.)' + '\n' + game[3] + '\n' + game[4] + '\n' + sales
-                print(game[5])
                 print(text)
-                tb = telebot.TeleBot('Your bot token')
+                tb = telebot.TeleBot('<bot token>')
+                resp = requests.get('https://api.telegram.org/bot<token>/getUpdates')
+                if resp.status_code != 200:
+                    print('\033[91mTelegram API error! Please check bot token\033[0m')
+                    return
                 tb.send_photo('@Channel_ID', game[5], caption = text)
                 print('send')
-        except Exception as e:
-            if e.args[0] == ('pagination error'):
-                print('something wrong in pagination block')
+                time.sleep(1)
+            print('Done')
+        except requests.exceptions.ConnectionError:
+            print('\033[91mConnection error! Please check url\033[0m')
+            return
+        except Exception as p:
+            if p.args[0] == 'pagination error':
+                print('\033[91mError! Please check pagination block\033[0m')
                 return
-        print('Done')
 
 def main():
     s = PS_Parser()
